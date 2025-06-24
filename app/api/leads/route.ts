@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
 
 interface Lead {
   id: string;
@@ -11,9 +13,21 @@ interface Lead {
   createdAt: string;
 }
 
-const leads: Lead[] = [];
+const leadsFile = path.resolve('./leads.json');
+
+function loadLeads(): Lead[] {
+  if (fs.existsSync(leadsFile)) {
+    return JSON.parse(fs.readFileSync(leadsFile, 'utf8'));
+  }
+  return [];
+}
+
+function saveLeads(leads: Lead[]) {
+  fs.writeFileSync(leadsFile, JSON.stringify(leads, null, 2));
+}
 
 export async function GET() {
+  const leads = loadLeads();
   return NextResponse.json(leads);
 }
 
@@ -24,6 +38,8 @@ export async function POST(req: Request) {
   if (!name || !email || !source || !status) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
+
+  const leads = loadLeads();
 
   const newLead: Lead = {
     id: uuidv4(),
@@ -36,6 +52,7 @@ export async function POST(req: Request) {
   };
 
   leads.push(newLead);
+  saveLeads(leads);
 
   return NextResponse.json(newLead, { status: 201 });
 }

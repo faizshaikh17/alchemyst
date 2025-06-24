@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface Lead {
@@ -26,7 +26,8 @@ const CRMDashboard = () => {
   const [showForm, setShowForm] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const loadLeads = async () => {
+  const loadLeads = useCallback(async () => {
+
     try {
       setLoading(true);
       const res = await fetch('/api/leads', { cache: 'no-store' });
@@ -37,7 +38,8 @@ const CRMDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+
+  }, [])
 
   const createLead = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +50,35 @@ const CRMDashboard = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newLead)
       });
+
+      const token = process.env.NEXT_PUBLIC_TOKEN;
+
+      await fetch('https://platform-backend.getalchemystai.com/api/v1/context/add', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          documents: [
+            {
+              content: `
+Lead Name: ${newLead.name}
+Email: ${newLead.email}
+Company: ${newLead.company || 'N/A'}
+Source: ${newLead.source}
+Status: ${newLead.status}
+Created At: ${new Date().toISOString()}
+        `.trim()
+            }
+          ],
+          source: "platform/crm/leads",
+          context_type: "resource",
+          scope: "internal"
+        })
+      });
+
+
       setNewLead({ name: '', email: '', company: '', source: 'manual', status: 'new' });
       setShowForm(false);
       notify('success', 'Lead created');
@@ -80,15 +111,14 @@ const CRMDashboard = () => {
 
   useEffect(() => {
     loadLeads();
-  }, []);
+  }, [loadLeads]);
 
   return (
     <div className="min-h-screen p-6 bg-white text-black">
       {notification && (
         <div
-          className={`fixed top-4 right-4 p-3 rounded border ${
-            notification.type === 'success' ? 'border-green-600' : 'border-red-600'
-          }`}
+          className={`fixed flex gap-2 items-center bottom-4 right-4 p-3 rounded border ${notification.type === 'success' ? 'border-green-600' : 'border-red-600'
+            }`}
         >
           {notification.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
           <span className="ml-2">{notification.message}</span>
