@@ -1,103 +1,185 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useState, useEffect } from 'react';
+import { Plus, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+
+interface Lead {
+  id: string;
+  name: string;
+  email: string;
+  company?: string;
+  source: string;
+  status: 'new' | 'contacted' | 'qualified' | 'converted';
+  createdAt: string;
+}
+
+const CRMDashboard = () => {
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [newLead, setNewLead] = useState({
+    name: '',
+    email: '',
+    company: '',
+    source: 'manual',
+    status: 'new' as Lead['status']
+  });
+  const [showForm, setShowForm] = useState(false);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const loadLeads = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/leads', { cache: 'no-store' });
+      const data = await res.json();
+      setLeads(data);
+    } catch {
+      notify('error', 'Failed to load leads');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newLead)
+      });
+      setNewLead({ name: '', email: '', company: '', source: 'manual', status: 'new' });
+      setShowForm(false);
+      notify('success', 'Lead created');
+      loadLeads();
+    } catch {
+      notify('error', 'Failed to create lead');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateStatus = async (id: string, status: Lead['status']) => {
+    try {
+      await fetch(`/api/leads/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      notify('success', 'Status updated');
+      loadLeads();
+    } catch {
+      notify('error', 'Failed to update status');
+    }
+  };
+
+  const notify = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  useEffect(() => {
+    loadLeads();
+  }, []);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen p-6 bg-white text-black">
+      {notification && (
+        <div
+          className={`fixed top-4 right-4 p-3 rounded border ${
+            notification.type === 'success' ? 'border-green-600' : 'border-red-600'
+          }`}
+        >
+          {notification.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+          <span className="ml-2">{notification.message}</span>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+      )}
+
+      <header className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">CRM Dashboard</h1>
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex items-center border px-4 py-2 rounded"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          <Plus size={16} /> <span className="ml-2">Add Lead</span>
+        </button>
+      </header>
+
+      <table className="w-full border border-gray-400 rounded">
+        <thead>
+          <tr>
+            <th className="p-3 text-left border-b border-gray-400">Name</th>
+            <th className="p-3 text-left border-b border-gray-400">Company</th>
+            <th className="p-3 text-left border-b border-gray-400">Source</th>
+            <th className="p-3 text-left border-b border-gray-400">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {leads.map((lead) => (
+            <tr key={lead.id} className="border-t border-gray-400">
+              <td className="p-3">
+                {lead.name}
+                <br />
+                <span className="text-sm text-gray-600">{lead.email}</span>
+              </td>
+              <td className="p-3">{lead.company || 'N/A'}</td>
+              <td className="p-3">{lead.source}</td>
+              <td className="p-3">
+                <select
+                  value={lead.status}
+                  onChange={(e) => updateStatus(lead.id, e.target.value as Lead['status'])}
+                  className="p-1 border border-gray-400 rounded"
+                >
+                  <option value="new">New</option>
+                  <option value="contacted">Contacted</option>
+                  <option value="qualified">Qualified</option>
+                  <option value="converted">Converted</option>
+                </select>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {showForm && (
+        <div className="fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center">
+          <div className="bg-white text-black border border-gray-400 p-6 rounded w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Add New Lead</h2>
+            <form onSubmit={createLead} className="space-y-4">
+              {['name', 'email', 'company'].map((field) => (
+                <div key={field}>
+                  <label className="block text-sm font-medium capitalize mb-1">{field}</label>
+                  <input
+                    type={field === 'email' ? 'email' : 'text'}
+                    required={field !== 'company'}
+                    value={(newLead as any)[field]}
+                    onChange={(e) => setNewLead({ ...newLead, [field]: e.target.value })}
+                    className="w-full p-2 border border-gray-400 rounded"
+                  />
+                </div>
+              ))}
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="flex-1 p-2 border border-gray-400 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 p-2 border border-gray-400 rounded flex justify-center items-center"
+                >
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default CRMDashboard;
